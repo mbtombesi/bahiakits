@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bahía Kits — Catálogo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #999;
+    --text3: #666;
+    --accent: #e8ff47;
+    --accent2: #b8cc2a;
+    --green: #3dd68c;
+    --red: #ff5c5c;
+    --orange: #ffaa3c;
+    --blue: #5cb8ff;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    padding-bottom: 90px;
+    min-height: 100vh;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, select { font-family: inherit; }
+
+  /* ═══ HEADER ═══ */
+  header {
+    padding: 26px 20px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .brand-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+  .social-row {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .social-row a {
+    width: 34px; height: 34px;
+    border: 1px solid var(--border2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text2);
+    font-size: 16px;
+    transition: all .15s;
+  }
+  .social-row a:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ═══ FILTERS ═══ */
+  .filters-bar {
+    display: flex; gap: 8px; padding: 14px 16px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg); z-index: 20;
+  }
+  .filters-bar::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    font-size: 12px; font-weight: 500;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .filter-chip.active { background: var(--accent); color: #141400; border-color: var(--accent); font-weight: 700; }
+
+  .search-row { padding: 0 16px 14px; }
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .search-input::placeholder { color: var(--text3); }
+
+  /* ═══ GRID ═══ */
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
+  @media (min-width: 640px) { .catalog-grid { grid-template-columns: repeat(3, 1fr); padding: 20px; gap: 16px; } }
+  @media (min-width: 960px) { .catalog-grid { grid-template-columns: repeat(4, 1fr); max-width: 1200px; margin: 0 auto; } }
+
+  .prod-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .prod-thumb {
+    width: 100%; aspect-ratio: 1/1;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .prod-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .prod-thumb .ti { font-size: 32px; color: var(--text3); }
+  .prod-badge {
+    position: absolute; top: 8px; left: 8px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 10px;
+    background: rgba(0,0,0,0.55); color: var(--text);
+    backdrop-filter: blur(4px);
+  }
+  .prod-info { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .prod-name { font-size: 13px; font-weight: 600; line-height: 1.25; }
+  .prod-price { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.5px; color: var(--accent); }
+
+  .talle-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .talle-select option:disabled { color: var(--text3); }
+
+  .btn-add {
+    width: 100%;
+    background: var(--accent);
+    color: #141400;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: auto;
+  }
+  .btn-add:disabled { background: var(--surface2); color: var(--text3); }
+  .btn-add:active { transform: scale(0.97); }
+
+  .empty-state {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .ti { font-size: 40px; margin-bottom: 12px; display: block; }
+
+  /* ═══ CART FAB ═══ */
+  .cart-fab {
+    position: fixed; bottom: 18px; left: 16px; right: 16px;
+    max-width: 480px; margin: 0 auto;
+    background: var(--accent);
+    color: #141400;
+    border-radius: 50px;
+    padding: 14px 20px;
+    display: none;
+    align-items: center; justify-content: space-between;
+    font-weight: 700; font-size: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 40;
+  }
+  .cart-fab.show { display: flex; }
+  .cart-fab .count { background: #141400; color: var(--accent); border-radius: 50%; width: 22px; height: 22px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; margin-right:8px; }
+
+  /* ═══ OVERLAY / MODAL ═══ */
+  .overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7);
+    align-items: flex-end; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  @media (min-width: 640px) { .overlay { align-items: center; } }
+  .modal {
+    background: var(--surface);
+    width: 100%; max-width: 480px;
+    max-height: 88vh;
+    border-radius: 20px 20px 0 0;
+    padding: 22px 20px 26px;
+    overflow-y: auto;
+  }
+  @media (min-width: 640px) { .modal { border-radius: var(--radius); } }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 0.5px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .modal-close { font-size: 20px; color: var(--text2); }
+
+  .cart-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cart-item-info { flex: 1; }
+  .cart-item-name { font-size: 13px; font-weight: 600; }
+  .cart-item-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .qty-ctrl { display: flex; align-items: center; gap: 8px; }
+  .qty-ctrl button { width: 26px; height: 26px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border2); font-size: 14px; }
+  .cart-remove { color: var(--red); font-size: 16px; margin-left: 8px; }
+
+  .cart-total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 0; margin-top: 6px;
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+  }
+  .btn-whatsapp {
+    width: 100%; background: #25D366; color: #06210f;
+    font-weight: 700; padding: 14px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 14px;
+  }
+
+  .form-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); display: block; margin-bottom: 6px; }
+  .form-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); font-size: 14px;
+    margin-bottom: 14px;
+  }
+  .form-error { font-size: 12px; color: var(--red); margin-bottom: 10px; }
+  .btn { padding: 11px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; background: var(--surface2); border: 1px solid var(--border2); }
+  .btn.primary { background: var(--accent); color: #141400; border-color: var(--accent); }
+  .btn.block { width: 100%; }
+
+  /* ═══ EDIT MODE ═══ */
+  .edit-toggle {
+    position: fixed; bottom: 18px; right: 16px;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text3); font-size: 14px;
+    z-index: 41;
+    opacity: 0.55;
+  }
+  body.cart-active .edit-toggle { display: none; }
+
+  .edit-banner {
+    display: none;
+    background: var(--accent); color: #141400;
+    font-size: 12px; font-weight: 700; text-align: center;
+    padding: 8px; letter-spacing: 0.5px;
+  }
+  body.edit-mode .edit-banner { display: block; }
+
+  .edit-overlay-card {
+    display: none;
+    position: absolute; inset: 0;
+    background: rgba(14,14,14,0.88);
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px;
+    opacity: 0; transition: opacity .15s;
+  }
+  body.edit-mode .prod-thumb:hover .edit-overlay-card,
+  body.edit-mode .prod-thumb:active .edit-overlay-card { opacity: 1; display: flex; }
+  .edit-overlay-card button { background: var(--surface); border: 1px solid var(--border2); padding: 7px 12px; border-radius: 20px; font-size: 11px; color: var(--text); display:flex; align-items:center; gap:6px; }
+
+  body.edit-mode .prod-price { cursor: pointer; border-bottom: 1px dashed var(--text3); }
+  .pending-tag {
+    font-size: 9px; color: var(--orange); margin-top: 2px; display: flex; align-items: center; gap: 3px;
+  }
+
+  .toast {
+    position: fixed; top: 16px; left: 16px; right: 16px; max-width: 420px; margin: 0 auto;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 13px; z-index: 200;
+    display: none;
+  }
+  .toast.show { display: block; }
+
+  .spinner-wrap { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--text3); }
+</style>
+</head>
+<body>
+
+<div class="edit-banner"><i class="ti ti-pencil"></i> MODO EDICIÓN — los cambios de foto se guardan directo, los de precio quedan a confirmar en el panel</div>
+
+<header>
+  <div class="brand-logo">BAHÍA KITS</div>
+  <div class="brand-sub">Indumentaria deportiva</div>
+  <div class="social-row" id="social-row"></div>
+</header>
+
+<div class="filters-bar" id="filters-bar"></div>
+<div class="search-row">
+  <input type="text" class="search-input" id="search-input" placeholder="Buscar camiseta, equipo...">
+</div>
+
+<div class="catalog-grid" id="catalog-grid">
+  <div class="spinner-wrap" id="loading-state"><i class="ti ti-loader-2" style="font-size:28px;"></i><br>Cargando catálogo...</div>
+</div>
+
+<div class="cart-fab" id="cart-fab" onclick="openCart()">
+  <span><span class="count" id="cart-count">0</span>Ver pedido</span>
+  <span id="cart-total">$0</span>
+</div>
+
+<button class="edit-toggle" id="edit-toggle" onclick="onEditToggleClick()" title="Acceso administrador"><i class="ti ti-lock"></i></button>
+
+<!-- CART MODAL -->
+<div class="overlay" id="modal-cart">
+  <div class="modal">
+    <div class="modal-title">Tu pedido <button class="modal-close" onclick="closeOverlay('modal-cart')"><i class="ti ti-x"></i></button></div>
+    <div id="cart-items-wrap"></div>
+    <div class="cart-total-row"><span>Total</span><span id="cart-modal-total">$0</span></div>
+    <div style="margin-bottom:10px;">
+      <label class="form-label">Tu nombre (opcional, para identificar el pedido)</label>
+      <input type="text" class="form-input" id="cliente-nombre" placeholder="Ej: Juan Pérez" style="margin-bottom:0;">
+    </div>
+    <button class="btn-whatsapp" id="btn-send-whatsapp" onclick="enviarPedidoWhatsapp()"><i class="ti ti-brand-whatsapp"></i> Hacer pedido por WhatsApp</button>
+  </div>
+</div>
+
+<!-- LOGIN MODAL (admin) -->
+<div class="overlay" id="modal-login">
+  <div class="modal">
+    <div class="modal-title">Acceso administrador <button class="modal-close" onclick="closeOverlay('modal-login')"><i class="ti ti-x"></i></button></div>
+    <label class="form-label">Email</label>
+    <input type="email" class="form-input" id="admin-email" autocomplete="username">
+    <label class="form-label">Contraseña</label>
+    <input type="password" class="form-input" id="admin-password" autocomplete="current-password">
+    <div class="form-error" id="admin-login-error"></div>
+    <button class="btn primary block" onclick="loginAdmin()"><i class="ti ti-login"></i> Entrar</button>
+  </div>
+</div>
+
+<!-- PRICE PROPOSAL MODAL -->
+<div class="overlay" id="modal-precio">
+  <div class="modal">
+    <div class="modal-title">Proponer nuevo precio <button class="modal-close" onclick="closeOverlay('modal-precio')"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:12px; color:var(--text2); margin-bottom:14px;">Este cambio queda pendiente de tu confirmación en el panel de gestión — no se aplica solo.</p>
+    <label class="form-label">Nuevo precio</label>
+    <input type="number" class="form-input" id="precio-nuevo-input" min="0">
+    <button class="btn primary block" onclick="confirmarPropuestaPrecio()"><i class="ti ti-send"></i> Enviar propuesta</button>
+  </div>
+</div>
+
+<input type="file" id="photo-upload-input" accept="image/*" style="display:none;" onchange="handleAdminPhotoUpload(event)">
+
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════
+     CONFIGURACIÓN — reemplazar con los datos reales
+═══════════════════════════════════════ -->
+<script>
+  // TODO(Bel): pegar acá el mismo firebaseConfig que usás en la app madre
+  // (Importar/Exportar → Nube → el bloque que pegaste al conectar Firebase).
+  const firebaseConfig = {
+    apiKey: "REEMPLAZAR",
+    authDomain: "REEMPLAZAR",
+    projectId: "REEMPLAZAR",
+    storageBucket: "REEMPLAZAR",
+    messagingSenderId: "REEMPLAZAR",
+    appId: "REEMPLAZAR"
+  };
+
+  const WHATSAPP_NUMERO = "5492915349862";
+
+  // Redes sociales — dejar vacío ("") el que no quieras mostrar.
+  const SOCIALES = {
+    instagram: "",
+    tiktok: "",
+    facebook: ""
+  };
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ═══════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════
+let DATA = { compras: [], ventas: [] };
+let STOCK_MAP = {};
+let PRODUCTOS = []; // agrupado por nombre de producto
+let PHOTOS = {}; // key -> [base64,...]
+let fbDb = null;
+let isAdmin = false;
+let currentFilter = 'todos';
+let currentSearch = '';
+let selectedTalles = {}; // producto -> talle elegido actualmente en el <select>
+
+const CAT_COLORS = { camiseta:'accent', pantalon:'blue', campera:'orange', botines:'green', accesorio:'gray', otro:'gray' };
+const CAT_LABELS = { camiseta:'Camisetas', pantalon:'Shorts/Pantalones', campera:'Camperas', botines:'Botines', accesorio:'Accesorios', otro:'Otros' };
+
+function fmtMoney(n) {
+  if (n === null || n === undefined || isNaN(n)) return '$0';
+  return '$' + Math.round(n).toLocaleString('es-AR');
+}
+
+function stockKeyOf(producto, talle) { return producto + '__' + talle; }
+
+// ═══════════════════════════
+// INIT FIREBASE
+// ═══════════════════════════
+function initFirebase() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    fbDb = firebase.firestore();
+    escucharDatos();
+    escucharFotos();
+    firebase.auth().onAuthStateChanged(user => {
+      isAdmin = !!user;
+      document.body.classList.toggle('edit-mode', isAdmin);
+      renderCatalog();
+    });
+  } catch (err) {
+    console.error(err);
+    showEmptyState('No se pudo conectar con el catálogo. Probá de nuevo en un rato.');
+  }
+}
+
+function escucharDatos() {
+  fbDb.collection('malsacado').doc('data').onSnapshot(doc => {
+    if (!doc.exists) { showEmptyState('Todavía no hay productos cargados.'); return; }
+    const remoto = doc.data();
+    if (remoto && remoto.json) {
+      try { DATA = JSON.parse(remoto.json); } catch(e) { console.error(e); return; }
+      buildStockAndProductos();
+      renderFilters();
+      renderCatalog();
+    }
+  }, err => {
+    console.error(err);
+    showEmptyState('No se pudo cargar el catálogo. Revisá tu conexión.');
+  });
+}
+
+function escucharFotos() {
+  fbDb.collection('malsacado_photos').onSnapshot(snap => {
+    snap.docChanges().forEach(change => {
+      const key = change.doc.id;
+      if (change.type === 'removed') { delete PHOTOS[key]; }
+      else { PHOTOS[key] = (change.doc.data() || {}).data || []; }
+    });
+    renderCatalog();
+  }, err => console.error(err));
+}
+
+function showEmptyState(msg) {
+  document.getElementById('catalog-grid').innerHTML =
+    `<div class="empty-state"><i class="ti ti-shirt-off"></i>${msg}</div>`;
+}
+
+// ═══════════════════════════
+// ARMAR STOCK Y PRODUCTOS AGRUPADOS (misma lógica que la app madre)
+// ═══════════════════════════
+function buildStockAndProductos() {
+  const map = {};
+  (DATA.compras || []).forEach(c => {
+    const k = stockKeyOf(c.producto, c.talle);
+    if (!map[k]) {
+      map[k] = {
+        producto: c.producto, talle: c.talle, categoria: c.categoria,
+        precioVenta: c.precioVenta, disponible: 0,
+      };
+    }
+    map[k].disponible += c.cantidad;
+  });
+  (DATA.ventas || []).forEach(v => {
+    if (map[v.stockKey]) map[v.stockKey].disponible -= v.cantidad;
+  });
+  STOCK_MAP = map;
+
+  const porProducto = {};
+  Object.values(map).forEach(item => {
+    if (!porProducto[item.producto]) {
+      porProducto[item.producto] = { producto: item.producto, categoria: item.categoria, talles: [] };
+    }
+    porProducto[item.producto].talles.push(item);
+  });
+  PRODUCTOS = Object.values(porProducto)
+    .filter(p => p.talles.some(t => t.disponible > 0))
+    .sort((a, b) => a.producto.localeCompare(b.producto, 'es'));
+}
+
+// ═══════════════════════════
+// FILTROS
+// ═══════════════════════════
+function renderFilters() {
+  const cats = [...new Set(PRODUCTOS.map(p => p.categoria))].filter(Boolean);
+  const bar = document.getElementById('filters-bar');
+  bar.innerHTML = `<button class="filter-chip ${currentFilter==='todos'?'active':''}" onclick="setFilter('todos')">Todos</button>` +
+    cats.map(c => `<button class="filter-chip ${currentFilter===c?'active':''}" onclick="setFilter('${c}')">${CAT_LABELS[c] || c}</button>`).join('');
+}
+function setFilter(cat) { currentFilter = cat; renderFilters(); renderCatalog(); }
+
+document.getElementById('search-input').addEventListener('input', (e) => {
+  currentSearch = e.target.value.toLowerCase().trim();
+  renderCatalog();
+});
+
+// ═══════════════════════════
+// RENDER CATÁLOGO
+// ═══════════════════════════
+function renderCatalog() {
+  const grid = document.getElementById('catalog-grid');
+  let items = PRODUCTOS.filter(p => currentFilter === 'todos' || p.categoria === currentFilter);
+  if (currentSearch) items = items.filter(p => p.producto.toLowerCase().includes(currentSearch));
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><i class="ti ti-search-off"></i>No encontramos camisetas con ese filtro.</div>`;
+    return;
+  }
+
+  grid.innerHTML = items.map(p => renderProductCard(p)).join('');
+}
+
+function renderProductCard(p) {
+  const sel = selectedTalles[p.producto] || (p.talles.find(t => t.disponible > 0) || p.talles[0]).talle;
+  const selItem = p.talles.find(t => t.talle === sel) || p.talles[0];
+  const disabled = !selItem || selItem.disponible <= 0;
+  const pid = 'p_' + btoa(unescape(encodeURIComponent(p.producto))).replace(/[^a-zA-Z0-9]/g, '');
+
+  // Las fotos se guardan por producto+talle (igual que en la app madre). Para la tarjeta
+  // usamos la foto del talle elegido, y si no tiene, la de cualquier otro talle del mismo producto.
+  let photos = PHOTOS[stockKeyOf(p.producto, sel)] || [];
+  if (!photos.length) {
+    for (const t of p.talles) {
+      const k = stockKeyOf(p.producto, t.talle);
+      if (PHOTOS[k] && PHOTOS[k].length) { photos = PHOTOS[k]; break; }
+    }
+  }
+  const foto = photos[0];
+
+  const tallesOptions = p.talles
+    .sort((a,b) => a.talle.localeCompare(b.talle, 'es', {sensitivity:'base'}))
+    .map(t => `<option value="${t.talle}" ${t.disponible<=0?'disabled':''} ${t.talle===sel?'selected':''}>Talle ${t.talle}${t.disponible<=0?' (sin stock)':''}</option>`)
+    .join('');
+
+  return `
+    <div class="prod-card" data-producto="${encodeURIComponent(p.producto)}">
+      <div class="prod-thumb">
+        ${foto ? `<img src="${foto}" alt="${p.producto}">` : `<i class="ti ti-shirt"></i>`}
+        <span class="prod-badge">${p.categoria || ''}</span>
+        <div class="edit-overlay-card">
+          <button onclick="triggerPhotoUpload('${encodeURIComponent(p.producto)}', '${sel}')"><i class="ti ti-camera"></i> Cambiar foto (talle ${sel})</button>
+        </div>
+      </div>
+      <div class="prod-info">
+        <div class="prod-name">${p.producto}</div>
+        <div>
+          <div class="prod-price" id="price_${pid}" onclick="onPriceClick('${encodeURIComponent(p.producto)}', '${sel}')">${fmtMoney(selItem ? selItem.precioVenta : 0)}</div>
+          <div class="pending-tag" id="pending_${pid}" style="display:none;"><i class="ti ti-clock"></i> precio propuesto, a confirmar</div>
+        </div>
+        <select class="talle-select" onchange="onTalleChange('${encodeURIComponent(p.producto)}', this.value)">
+          ${tallesOptions}
+        </select>
+        <button class="btn-add" ${disabled?'disabled':''} onclick="agregarAlPedido('${encodeURIComponent(p.producto)}')">
+          <i class="ti ti-shopping-cart-plus"></i> ${disabled ? 'Sin stock' : 'Agregar'}
+        </button>
+      </div>
+    </div>`;
+}
+
+function onTalleChange(encProducto, talle) {
+  const producto = decodeURIComponent(encProducto);
+  selectedTalles[producto] = talle;
+  renderCatalog();
+}
+
+// ═══════════════════════════
+// CARRITO (localStorage, por dispositivo)
+// ═══════════════════════════
+const CART_KEY = 'bahiakits_pedido';
+function getCart() { try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch(e) { return []; } }
+function setCart(c) { localStorage.setItem(CART_KEY, JSON.stringify(c)); renderCartFab(); }
+
+function agregarAlPedido(encProducto) {
+  const producto = decodeURIComponent(encProducto);
+  const p = PRODUCTOS.find(x => x.producto === producto);
+  if (!p) return;
+  const talle = selectedTalles[producto] || (p.talles.find(t => t.disponible > 0) || {}).talle;
+  const item = p.talles.find(t => t.talle === talle);
+  if (!item || item.disponible <= 0) return;
+
+  const cart = getCart();
+  const existing = cart.find(c => c.producto === producto && c.talle === talle);
+  if (existing) existing.cantidad += 1;
+  else cart.push({ producto, talle, precioVenta: item.precioVenta, cantidad: 1 });
+  setCart(cart);
+  showToast(`Agregado: ${producto} (Talle ${talle})`);
+}
+
+function renderCartFab() {
+  const cart = getCart();
+  const count = cart.reduce((s,c) => s + c.cantidad, 0);
+  const total = cart.reduce((s,c) => s + c.cantidad * c.precioVenta, 0);
+  const fab = document.getElementById('cart-fab');
+  document.getElementById('cart-count').textContent = count;
+  document.getElementById('cart-total').textContent = fmtMoney(total);
+  fab.classList.toggle('show', count > 0);
+  document.body.classList.toggle('cart-active', count > 0);
+}
+
+function openCart() {
+  renderCartItems();
+  document.getElementById('modal-cart').classList.add('open');
+}
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+function renderCartItems() {
+  const cart = getCart();
+  const wrap = document.getElementById('cart-items-wrap');
+  if (cart.length === 0) { wrap.innerHTML = '<p style="color:var(--text3); font-size:13px; padding:16px 0;">Todavía no agregaste nada.</p>'; }
+  else {
+    wrap.innerHTML = cart.map((c, idx) => `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">${c.producto}</div>
+          <div class="cart-item-sub">Talle ${c.talle} · ${fmtMoney(c.precioVenta)} c/u</div>
+        </div>
+        <div class="qty-ctrl">
+          <button onclick="cambiarCantidad(${idx}, -1)"><i class="ti ti-minus"></i></button>
+          <span>${c.cantidad}</span>
+          <button onclick="cambiarCantidad(${idx}, 1)"><i class="ti ti-plus"></i></button>
+        </div>
+        <button class="cart-remove" onclick="eliminarDelCarrito(${idx})"><i class="ti ti-trash"></i></button>
+      </div>`).join('');
+  }
+  const total = cart.reduce((s,c) => s + c.cantidad * c.precioVenta, 0);
+  document.getElementById('cart-modal-total').textContent = fmtMoney(total);
+}
+
+function cambiarCantidad(idx, delta) {
+  const cart = getCart();
+  cart[idx].cantidad += delta;
+  if (cart[idx].cantidad <= 0) cart.splice(idx, 1);
+  setCart(cart);
+  renderCartItems();
+}
+function eliminarDelCarrito(idx) {
+  const cart = getCart();
+  cart.splice(idx, 1);
+  setCart(cart);
+  renderCartItems();
+}
+
+function enviarPedidoWhatsapp() {
+  const cart = getCart();
+  if (cart.length === 0) return;
+  const nombre = document.getElementById('cliente-nombre').value.trim();
+  let msg = '¡Hola! Quiero hacer este pedido';
+  if (nombre) msg += ` a nombre de ${nombre}`;
+  msg += ':\n\n';
+  cart.forEach(c => {
+    msg += `- ${c.producto} (Talle ${c.talle}) x${c.cantidad} — ${fmtMoney(c.precioVenta)} c/u\n`;
+  });
+  const total = cart.reduce((s,c) => s + c.cantidad * c.precioVenta, 0);
+  msg += `\nTotal: ${fmtMoney(total)}`;
+  const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+// ═══════════════════════════
+// TOAST
+// ═══════════════════════════
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ═══════════════════════════
+// REDES SOCIALES
+// ═══════════════════════════
+function renderSociales() {
+  const row = document.getElementById('social-row');
+  const links = [];
+  if (SOCIALES.instagram) links.push(`<a href="${SOCIALES.instagram}" target="_blank" rel="noopener" title="Instagram"><i class="ti ti-brand-instagram"></i></a>`);
+  if (SOCIALES.tiktok) links.push(`<a href="${SOCIALES.tiktok}" target="_blank" rel="noopener" title="TikTok"><i class="ti ti-brand-tiktok"></i></a>`);
+  if (SOCIALES.facebook) links.push(`<a href="${SOCIALES.facebook}" target="_blank" rel="noopener" title="Facebook"><i class="ti ti-brand-facebook"></i></a>`);
+  row.innerHTML = links.join('');
+  row.style.display = links.length ? 'flex' : 'none';
+}
+
+// ═══════════════════════════
+// MODO ADMIN (edición oculta)
+// ═══════════════════════════
+function onEditToggleClick() {
+  if (isAdmin) {
+    firebase.auth().signOut();
+    showToast('Saliste del modo edición.');
+  } else {
+    document.getElementById('modal-login').classList.add('open');
+  }
+}
+
+function loginAdmin() {
+  const email = document.getElementById('admin-email').value.trim();
+  const password = document.getElementById('admin-password').value;
+  const errorEl = document.getElementById('admin-login-error');
+  errorEl.textContent = '';
+  if (!email || !password) { errorEl.textContent = 'Completá email y contraseña.'; return; }
+  firebase.auth().signInWithEmailAndPassword(email, password).then(() => {
+    document.getElementById('admin-password').value = '';
+    closeOverlay('modal-login');
+    showToast('Modo edición activado.');
+  }).catch(err => {
+    errorEl.textContent = 'No se pudo iniciar sesión: ' + err.message;
+  });
+}
+
+// ---- Fotos: se guardan por producto+talle (igual que la app madre), sincronizan directo sin preguntar ----
+let _photoUploadTarget = null;
+function triggerPhotoUpload(encProducto, talle) {
+  if (!isAdmin) return;
+  _photoUploadTarget = stockKeyOf(decodeURIComponent(encProducto), talle);
+  document.getElementById('photo-upload-input').click();
+}
+function handleAdminPhotoUpload(evt) {
+  const file = evt.target.files[0];
+  if (!file || !_photoUploadTarget) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result;
+    fbDb.collection('malsacado_photos').doc(_photoUploadTarget).set({
+      data: [base64],
+      actualizado: new Date().toISOString()
+    }).then(() => showToast('Foto actualizada.'))
+      .catch(err => showToast('Error al subir la foto: ' + err.message));
+  };
+  reader.readAsDataURL(file);
+  evt.target.value = '';
+}
+
+// ---- Precio: queda pendiente de aprobación en la app madre ----
+let _precioTarget = null; // { producto, talle }
+function onPriceClick(encProducto, talle) {
+  if (!isAdmin) return;
+  const producto = decodeURIComponent(encProducto);
+  _precioTarget = { producto, talle };
+  const item = STOCK_MAP[stockKeyOf(producto, talle)];
+  document.getElementById('precio-nuevo-input').value = item ? item.precioVenta : '';
+  document.getElementById('modal-precio').classList.add('open');
+}
+function confirmarPropuestaPrecio() {
+  if (!_precioTarget) return;
+  const nuevo = parseFloat(document.getElementById('precio-nuevo-input').value);
+  if (isNaN(nuevo) || nuevo < 0) { showToast('Ingresá un precio válido.'); return; }
+  const item = STOCK_MAP[stockKeyOf(_precioTarget.producto, _precioTarget.talle)];
+  fbDb.collection('malsacado_pending_changes').add({
+    tipo: 'precio',
+    producto: _precioTarget.producto,
+    talle: _precioTarget.talle,
+    precioAnterior: item ? item.precioVenta : null,
+    precioNuevo: nuevo,
+    fecha: new Date().toISOString(),
+    estado: 'pendiente'
+  }).then(() => {
+    closeOverlay('modal-precio');
+    showToast('Propuesta enviada — confirmala en el panel de gestión.');
+  }).catch(err => showToast('Error: ' + err.message));
+}
+
+// ═══════════════════════════
+// INIT
+// ═══════════════════════════
+renderSociales();
+renderCartFab();
+initFirebase();
+</script>
+</body>
+</html>
