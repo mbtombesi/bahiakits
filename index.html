@@ -579,12 +579,14 @@ function escucharFotos() {
 // comparten entre todos los talles de un mismo producto. Junta en la nube, bajo
 // una sola clave por producto, las que ya estaban guardadas con la clave vieja.
 // Usa la misma lógica que la app madre y comparten el mismo "candado" en la nube
-// (el documento malsacado_meta/fotos_por_producto), así que no importa cuál de
-// las dos apps se abra primero — la migración corre una sola vez entre ambas.
+// (el documento malsacado/meta_fotos_producto), así que no importa cuál de las
+// dos apps se abra primero — la migración corre una sola vez entre ambas.
+// Ojo: el candado vive en la colección 'malsacado' (no en una nueva) porque las
+// reglas de seguridad de Firestore están escritas por nombre de colección.
 async function migrarClavesFotosANubeProducto() {
   if (!fbDb) return;
   try {
-    const flagRef = fbDb.collection('malsacado_meta').doc('fotos_por_producto');
+    const flagRef = fbDb.collection('malsacado').doc('meta_fotos_producto');
     const flag = await flagRef.get();
     if (flag.exists) return;
     const snap = await fbDb.collection('malsacado_photos_items').get();
