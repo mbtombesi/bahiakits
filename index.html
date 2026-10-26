@@ -421,7 +421,7 @@
 <div class="overlay" id="modal-fotos">
   <div class="modal">
     <div class="modal-title"><span id="fotos-modal-title">Fotos</span> <button class="modal-close" onclick="closeOverlay('modal-fotos')"><i class="ti ti-x"></i></button></div>
-    <p style="font-size:12px; color:var(--text2); margin-bottom:14px;">Se sincronizan directo con la app madre, sin avisos. Podés subir varias, borrarlas o descargarlas.</p>
+    <p style="font-size:12px; color:var(--text2); margin-bottom:14px;">Se sincronizan directo con la app madre, sin avisos. Podés subir varias, borrarlas o descargarlas. Estas fotos se ven en todos los talles de este producto.</p>
     <div class="fotos-admin-grid" id="fotos-admin-grid"></div>
   </div>
 </div>
@@ -496,6 +496,22 @@ function fmtMoney(n) {
 
 function stockKeyOf(producto, talle) { return producto + '__' + talle; }
 
+// Orden canónico de talles (de menor a mayor), igual que en la app madre.
+const RANGO_TALLES = { XS:0, S:1, M:2, L:3, XL:4, XXL:5, '2XL':5, XXXL:6, '3XL':6, XXXXL:7, '4XL':7 };
+function rangoTalle(t) {
+  const norm = (t || '').toUpperCase().trim();
+  return RANGO_TALLES.hasOwnProperty(norm) ? RANGO_TALLES[norm] : 999;
+}
+function compararTalles(a, b) {
+  const ra = rangoTalle(a), rb = rangoTalle(b);
+  if (ra !== rb) return ra - rb;
+  return (a || '').localeCompare(b || '', 'es', { sensitivity: 'base' });
+}
+function productoDeKey(key) {
+  const sep = (key || '').lastIndexOf('__');
+  return sep === -1 ? key : key.slice(0, sep);
+}
+
 // ═══════════════════════════
 // INIT FIREBASE
 // ═══════════════════════════
@@ -509,6 +525,7 @@ function initFirebase() {
       isAdmin = !!user;
       document.body.classList.toggle('edit-mode', isAdmin);
       renderCatalog();
+      if (isAdmin) migrarClavesFotosANubeProducto().catch(err => console.error('Error migrando fotos a clave por producto:', err));
     });
   } catch (err) {
     console.error(err);
@@ -556,6 +573,58 @@ function escucharFotos() {
     renderCatalog();
     if (_fotosAdminTarget) renderFotosAdminThumbs();
   }, err => console.error(err));
+}
+
+// Migración única: las fotos se guardaban separadas por producto+talle; ahora se
+// comparten entre todos los talles de un mismo producto. Junta en la nube, bajo
+// una sola clave por producto, las que ya estaban guardadas con la clave vieja.
+// Usa la misma lógica que la app madre y comparten el mismo "candado" en la nube
+// (el documento malsacado_meta/fotos_por_producto), así que no importa cuál de
+// las dos apps se abra primero — la migración corre una sola vez entre ambas.
+async function migrarClavesFotosANubeProducto() {
+  if (!fbDb) return;
+  try {
+    const flagRef = fbDb.collection('malsacado_meta').doc('fotos_por_producto');
+    const flag = await flagRef.get();
+    if (flag.exists) return;
+    const snap = await fbDb.collection('malsacado_photos_items').get();
+    const porProducto = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (!d || !d.key) return;
+      const producto = productoDeKey(d.key);
+      (porProducto[producto] = porProducto[producto] || []).push({ id: doc.id, src: d.src, orden: d.orden || 0 });
+    });
+
+    const operaciones = [];
+    Object.keys(porProducto).forEach(producto => {
+      const items = porProducto[producto].slice().sort((a, b) => a.orden - b.orden);
+      const vistos = new Set();
+      let nuevoOrden = 0;
+      items.forEach(it => {
+        if (vistos.has(it.src)) {
+          operaciones.push({ tipo: 'delete', id: it.id });
+        } else {
+          vistos.add(it.src);
+          operaciones.push({ tipo: 'update', id: it.id, data: { key: producto, orden: nuevoOrden++ } });
+        }
+      });
+    });
+
+    for (let i = 0; i < operaciones.length; i += 400) {
+      const tanda = operaciones.slice(i, i + 400);
+      const batch = fbDb.batch();
+      tanda.forEach(op => {
+        const ref = fbDb.collection('malsacado_photos_items').doc(op.id);
+        if (op.tipo === 'delete') batch.delete(ref);
+        else batch.update(ref, op.data);
+      });
+      await batch.commit();
+    }
+    await flagRef.set({ hecho: true, fecha: new Date().toISOString() });
+  } catch (err) {
+    console.error('Error migrando fotos a clave por producto en la nube:', err);
+  }
 }
 
 function showEmptyState(msg) {
@@ -633,29 +702,22 @@ function renderProductCard(p) {
   const disabled = !selItem || selItem.disponible <= 0;
   const pid = 'p_' + btoa(unescape(encodeURIComponent(p.producto))).replace(/[^a-zA-Z0-9]/g, '');
 
-  // Las fotos se guardan por producto+talle (igual que en la app madre). Para la tarjeta
-  // usamos la foto del talle elegido, y si no tiene, la de cualquier otro talle del mismo producto.
-  let photos = PHOTOS[stockKeyOf(p.producto, sel)] || [];
-  if (!photos.length) {
-    for (const t of p.talles) {
-      const k = stockKeyOf(p.producto, t.talle);
-      if (PHOTOS[k] && PHOTOS[k].length) { photos = PHOTOS[k]; break; }
-    }
-  }
+  // Las fotos se comparten entre todos los talles de un mismo producto.
+  const photos = PHOTOS[p.producto] || [];
   const foto = photos[0];
 
   const tallesOptions = p.talles
-    .sort((a,b) => a.talle.localeCompare(b.talle, 'es', {sensitivity:'base'}))
+    .sort((a,b) => compararTalles(a.talle, b.talle))
     .map(t => `<option value="${t.talle}" ${t.disponible<=0?'disabled':''} ${t.talle===sel?'selected':''}>Talle ${t.talle}${t.disponible<=0?' (sin stock)':''}</option>`)
     .join('');
 
   return `
     <div class="prod-card" data-producto="${encodeURIComponent(p.producto)}">
-      <div class="prod-thumb" onclick="abrirLightbox('${encodeURIComponent(p.producto)}', '${sel}')">
+      <div class="prod-thumb" onclick="abrirLightbox('${encodeURIComponent(p.producto)}')">
         ${foto ? `<img src="${foto}" alt="${p.producto}">` : `<i class="ti ti-shirt"></i>`}
         <span class="prod-badge">${p.categoria || ''}</span>
         <div class="edit-overlay-card">
-          <button onclick="event.stopPropagation(); abrirGestionFotos('${encodeURIComponent(p.producto)}', '${sel}')"><i class="ti ti-camera"></i> Fotos (talle ${sel})</button>
+          <button onclick="event.stopPropagation(); abrirGestionFotos('${encodeURIComponent(p.producto)}')"><i class="ti ti-camera"></i> Fotos</button>
         </div>
       </div>
       <div class="prod-info">
@@ -829,18 +891,9 @@ function loginAdmin() {
 let _lightboxFotos = [];
 let _lightboxIdx = 0;
 
-function abrirLightbox(encProducto, talle) {
+function abrirLightbox(encProducto) {
   const producto = decodeURIComponent(encProducto);
-  let photos = PHOTOS[stockKeyOf(producto, talle)] || [];
-  if (!photos.length) {
-    const p = PRODUCTOS.find(x => x.producto === producto);
-    if (p) {
-      for (const t of p.talles) {
-        const k = stockKeyOf(producto, t.talle);
-        if (PHOTOS[k] && PHOTOS[k].length) { photos = PHOTOS[k]; break; }
-      }
-    }
-  }
+  const photos = PHOTOS[producto] || [];
   if (!photos.length) return; // sin fotos cargadas todavía, no hay nada que mostrar
   _lightboxFotos = photos;
   _lightboxIdx = 0;
@@ -893,14 +946,14 @@ function comprimirImagen(file, maxDim, calidad) {
   });
 }
 
-// ---- Fotos: se guardan por producto+talle (igual que la app madre), sincronizan directo sin preguntar ----
-let _fotosAdminTarget = null; // key producto__talle
+// ---- Fotos: se comparten entre todos los talles de un mismo producto, sincronizan directo sin preguntar ----
+let _fotosAdminTarget = null; // nombre del producto
 
-function abrirGestionFotos(encProducto, talle) {
+function abrirGestionFotos(encProducto) {
   if (!isAdmin) return;
   const producto = decodeURIComponent(encProducto);
-  _fotosAdminTarget = stockKeyOf(producto, talle);
-  document.getElementById('fotos-modal-title').textContent = `Fotos — ${producto} (talle ${talle})`;
+  _fotosAdminTarget = producto;
+  document.getElementById('fotos-modal-title').textContent = `Fotos — ${producto}`;
   renderFotosAdminThumbs();
   document.getElementById('modal-fotos').classList.add('open');
 }
