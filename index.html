@@ -324,6 +324,29 @@
   .toast.show { display: block; }
 
   .spinner-wrap { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--text3); }
+
+  /* ═══ LIGHTBOX DE FOTOS (clientes) ═══ */
+  #modal-lightbox { align-items: center !important; }
+  .modal-lightbox {
+    background: transparent; box-shadow: none; max-width: 94vw; width: auto;
+    display: flex; flex-direction: column; align-items: center; padding: 0; border-radius: 0; max-height: 92vh;
+  }
+  .lightbox-img-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; }
+  .lightbox-img-wrap img { max-width: 92vw; max-height: 76vh; border-radius: var(--radius-sm); object-fit: contain; background: var(--surface); display: block; }
+  .lightbox-close {
+    position: absolute; top: 8px; right: 8px; color: var(--text); font-size: 18px;
+    background: rgba(0,0,0,0.55); width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; z-index: 2;
+  }
+  .lightbox-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.55); color: var(--text);
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .lightbox-prev { left: 8px; }
+  .lightbox-next { right: 8px; }
+  .lightbox-counter { margin-top: 12px; font-size: 12px; color: var(--text2); }
+  .prod-thumb { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -399,6 +422,19 @@
   </div>
 </div>
 <input type="file" id="photo-upload-input" accept="image/*" multiple style="display:none;" onchange="handleAdminPhotoUpload(event)">
+
+<!-- LIGHTBOX DE FOTOS (clientes) -->
+<div class="overlay" id="modal-lightbox" onclick="if(event.target===this) closeOverlay('modal-lightbox')">
+  <div class="modal modal-lightbox">
+    <div class="lightbox-img-wrap">
+      <button class="lightbox-close" onclick="closeOverlay('modal-lightbox')"><i class="ti ti-x"></i></button>
+      <button class="lightbox-nav lightbox-prev" id="lightbox-prev" onclick="lightboxPrev()"><i class="ti ti-chevron-left"></i></button>
+      <img id="lightbox-img" src="" alt="Foto del producto">
+      <button class="lightbox-nav lightbox-next" id="lightbox-next" onclick="lightboxNext()"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -594,11 +630,11 @@ function renderProductCard(p) {
 
   return `
     <div class="prod-card" data-producto="${encodeURIComponent(p.producto)}">
-      <div class="prod-thumb">
+      <div class="prod-thumb" onclick="abrirLightbox('${encodeURIComponent(p.producto)}', '${sel}')">
         ${foto ? `<img src="${foto}" alt="${p.producto}">` : `<i class="ti ti-shirt"></i>`}
         <span class="prod-badge">${p.categoria || ''}</span>
         <div class="edit-overlay-card">
-          <button onclick="abrirGestionFotos('${encodeURIComponent(p.producto)}', '${sel}')"><i class="ti ti-camera"></i> Fotos (talle ${sel})</button>
+          <button onclick="event.stopPropagation(); abrirGestionFotos('${encodeURIComponent(p.producto)}', '${sel}')"><i class="ti ti-camera"></i> Fotos (talle ${sel})</button>
         </div>
       </div>
       <div class="prod-info">
@@ -768,6 +804,74 @@ function loginAdmin() {
   });
 }
 
+// ---- Lightbox de fotos (vista cliente, ver en grande) ----
+let _lightboxFotos = [];
+let _lightboxIdx = 0;
+
+function abrirLightbox(encProducto, talle) {
+  const producto = decodeURIComponent(encProducto);
+  let photos = PHOTOS[stockKeyOf(producto, talle)] || [];
+  if (!photos.length) {
+    const p = PRODUCTOS.find(x => x.producto === producto);
+    if (p) {
+      for (const t of p.talles) {
+        const k = stockKeyOf(producto, t.talle);
+        if (PHOTOS[k] && PHOTOS[k].length) { photos = PHOTOS[k]; break; }
+      }
+    }
+  }
+  if (!photos.length) return; // sin fotos cargadas todavía, no hay nada que mostrar
+  _lightboxFotos = photos;
+  _lightboxIdx = 0;
+  renderLightbox();
+  document.getElementById('modal-lightbox').classList.add('open');
+}
+
+function renderLightbox() {
+  document.getElementById('lightbox-img').src = _lightboxFotos[_lightboxIdx];
+  document.getElementById('lightbox-counter').textContent = (_lightboxIdx + 1) + ' / ' + _lightboxFotos.length;
+  const multi = _lightboxFotos.length > 1;
+  document.getElementById('lightbox-prev').style.display = multi ? '' : 'none';
+  document.getElementById('lightbox-next').style.display = multi ? '' : 'none';
+}
+
+function lightboxPrev() { _lightboxIdx = (_lightboxIdx - 1 + _lightboxFotos.length) % _lightboxFotos.length; renderLightbox(); }
+function lightboxNext() { _lightboxIdx = (_lightboxIdx + 1) % _lightboxFotos.length; renderLightbox(); }
+
+// ---- Comprimir fotos antes de guardarlas (evita pasarse del límite de 1MB por documento en Firestore) ----
+function comprimirImagen(file, maxDim, calidad) {
+  maxDim = maxDim || 1280;
+  calidad = calidad || 0.72;
+  return new Promise((resolve, reject) => {
+    const procesar = (bitmap, width, height) => {
+      let w = width, h = height;
+      if (w > maxDim || h > maxDim) {
+        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', calidad));
+    };
+    if (window.createImageBitmap) {
+      createImageBitmap(file, { imageOrientation: 'from-image' })
+        .then(bitmap => procesar(bitmap, bitmap.width, bitmap.height))
+        .catch(() => createImageBitmap(file).then(bitmap => procesar(bitmap, bitmap.width, bitmap.height)).catch(reject));
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => procesar(img, img.width, img.height);
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    }
+  });
+}
+
 // ---- Fotos: se guardan por producto+talle (igual que la app madre), sincronizan directo sin preguntar ----
 let _fotosAdminTarget = null; // key producto__talle
 
@@ -797,20 +901,16 @@ function triggerPhotoUpload() {
   document.getElementById('photo-upload-input').click();
 }
 
-function handleAdminPhotoUpload(evt) {
+async function handleAdminPhotoUpload(evt) {
   const files = Array.from(evt.target.files || []);
   if (!files.length || !_fotosAdminTarget) return;
   const existentes = (PHOTOS[_fotosAdminTarget] || []).slice();
-  let cargadas = 0;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      existentes.push(reader.result);
-      cargadas++;
-      if (cargadas === files.length) guardarFotosAdmin(existentes);
-    };
-    reader.readAsDataURL(file);
-  });
+  try {
+    const nuevas = await Promise.all(files.map(f => comprimirImagen(f)));
+    guardarFotosAdmin(existentes.concat(nuevas));
+  } catch (e) {
+    showToast('No se pudieron procesar una o más fotos: ' + e.message);
+  }
   evt.target.value = '';
 }
 
@@ -824,6 +924,11 @@ function guardarFotosAdmin(arr) {
   PHOTOS[_fotosAdminTarget] = arr; // optimista, para que se vea al toque
   renderFotosAdminThumbs();
   renderCatalog();
+  const pesoAprox = arr.reduce((s, f) => s + (f ? f.length : 0), 0);
+  if (pesoAprox > 950000) {
+    showToast('Estas fotos pesan demasiado juntas para guardarse en la nube. Borrá alguna de este talle o subí menos a la vez.');
+    return;
+  }
   fbDb.collection('malsacado_photos').doc(_fotosAdminTarget).set({
     data: arr,
     actualizado: new Date().toISOString()
