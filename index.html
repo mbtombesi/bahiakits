@@ -948,6 +948,27 @@ function comprimirImagen(file, maxDim, calidad) {
   });
 }
 
+// Algunas fotos (estampados muy detallados, con mucho ruido/textura) no bajan de
+// peso lo suficiente con la compresión de siempre. En vez de descartarlas, se
+// prueba de nuevo con menos calidad/resolución hasta que entren.
+async function comprimirImagenAdaptativa(file, limiteBytes) {
+  limiteBytes = limiteBytes || 900000;
+  const intentos = [
+    { maxDim: 1280, calidad: 0.72 },
+    { maxDim: 1280, calidad: 0.5 },
+    { maxDim: 1024, calidad: 0.5 },
+    { maxDim: 1024, calidad: 0.35 },
+    { maxDim: 800, calidad: 0.35 },
+    { maxDim: 640, calidad: 0.3 },
+  ];
+  let resultado = null;
+  for (const { maxDim, calidad } of intentos) {
+    resultado = await comprimirImagen(file, maxDim, calidad);
+    if (resultado.length <= limiteBytes) return resultado;
+  }
+  return resultado;
+}
+
 // ---- Fotos: se comparten entre todos los talles de un mismo producto, sincronizan directo sin preguntar ----
 let _fotosAdminTarget = null; // nombre del producto
 
@@ -988,7 +1009,7 @@ async function handleAdminPhotoUpload(evt) {
     return;
   }
   try {
-    const nuevas = await Promise.all(files.map(f => comprimirImagen(f)));
+    const nuevas = await Promise.all(files.map(f => comprimirImagenAdaptativa(f)));
     subirFotosNuevasAdmin(nuevas);
   } catch (e) {
     alert('No se pudieron procesar una o más fotos: ' + e.message);
@@ -1004,7 +1025,7 @@ function subirFotosNuevasAdmin(srcs) {
   const validas = srcs.filter(s => s && s.length <= 900000);
   const descartadas = srcs.length - validas.length;
   if (!validas.length) {
-    if (descartadas) alert('Esa foto pesa demasiado incluso comprimida. Probá con otra.');
+    if (descartadas) alert('Esta foto es muy pesada incluso comprimida al máximo (suele pasar con estampados muy detallados) y no se pudo subir.');
     return;
   }
   if (!fbDb || !firebase.auth().currentUser) {
