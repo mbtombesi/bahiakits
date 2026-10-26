@@ -302,7 +302,11 @@
     font-size: 11px; cursor: pointer;
   }
   .foto-admin-thumb a { left: 2px; color: var(--text); }
-  .foto-admin-thumb button { right: 2px; color: var(--red); }
+  .foto-admin-thumb button.del-foto { right: 2px; color: var(--red); }
+  .foto-admin-thumb button.mv-foto { bottom: 2px; top: auto; color: var(--text); }
+  .foto-admin-thumb button.mv-foto.mv-left { left: 2px; }
+  .foto-admin-thumb button.mv-foto.mv-right { right: 2px; }
+  .foto-admin-thumb button.mv-foto:disabled { opacity: 0.25; cursor: default; }
   .foto-admin-thumb.add-more {
     display: flex; align-items: center; justify-content: center;
     border: 2px dashed var(--border2); background: var(--surface2); color: var(--text3); font-size: 24px; cursor: pointer;
@@ -475,6 +479,7 @@ let STOCK_MAP = {};
 let PRODUCTOS = []; // agrupado por nombre de producto
 let PHOTOS = {}; // key -> [base64,...]
 let PHOTO_IDS = {}; // key -> [idDocFirestore,...] (mismo orden que PHOTOS), para poder borrar una foto puntual
+let PHOTO_META = {}; // key -> [{id, orden},...] (mismo orden que PHOTOS), para poder reordenar
 let fbDb = null;
 let isAdmin = false;
 let currentFilter = 'todos';
@@ -538,14 +543,16 @@ function escucharFotos() {
       if (!d || !d.key) return;
       (porKey[d.key] = porKey[d.key] || []).push({ id: doc.id, src: d.src, orden: d.orden || 0 });
     });
-    const nuevoPhotos = {}, nuevoIds = {};
+    const nuevoPhotos = {}, nuevoIds = {}, nuevoMeta = {};
     Object.keys(porKey).forEach(key => {
       const items = porKey[key].sort((a, b) => a.orden - b.orden);
       nuevoPhotos[key] = items.map(it => it.src);
       nuevoIds[key] = items.map(it => it.id);
+      nuevoMeta[key] = items.map(it => ({ id: it.id, orden: it.orden }));
     });
     PHOTOS = nuevoPhotos;
     PHOTO_IDS = nuevoIds;
+    PHOTO_META = nuevoMeta;
     renderCatalog();
     if (_fotosAdminTarget) renderFotosAdminThumbs();
   }, err => console.error(err));
@@ -905,7 +912,9 @@ function renderFotosAdminThumbs() {
     <div class="foto-admin-thumb">
       <img src="${src}" alt="foto ${i+1}">
       <a href="${src}" download="${(_fotosAdminTarget||'foto').replace(/[^a-zA-Z0-9_-]+/g,'_')}_${i+1}.jpg" title="Descargar"><i class="ti ti-download"></i></a>
-      <button onclick="eliminarFotoAdmin(${i})" title="Eliminar"><i class="ti ti-x"></i></button>
+      <button class="del-foto" onclick="eliminarFotoAdmin(${i})" title="Eliminar"><i class="ti ti-x"></i></button>
+      <button class="mv-foto mv-left" onclick="moverFotoAdmin(${i}, -1)" title="Mover a la izquierda" ${i===0?'disabled':''}><i class="ti ti-chevron-left"></i></button>
+      <button class="mv-foto mv-right" onclick="moverFotoAdmin(${i}, 1)" title="Mover a la derecha" ${i===fotos.length-1?'disabled':''}><i class="ti ti-chevron-right"></i></button>
     </div>`).join('') +
     `<div class="foto-admin-thumb add-more" onclick="triggerPhotoUpload()" title="Agregar fotos"><i class="ti ti-plus"></i></div>`;
 }
@@ -956,6 +965,31 @@ function eliminarFotoAdmin(idx) {
   fbDb.collection('malsacado_photos_items').doc(id).delete()
     .then(() => showToast('Foto eliminada.'))
     .catch(err => showToast('Error al eliminar: ' + err.message));
+}
+
+// Intercambia el orden de dos fotos vecinas (-1 = mover a la izquierda, +1 = a la derecha).
+function moverFotoAdmin(idx, dir) {
+  const key = _fotosAdminTarget;
+  const meta = (PHOTO_META[key] || []).slice();
+  const j = idx + dir;
+  if (j < 0 || j >= meta.length) return;
+  const a = meta[idx], b = meta[j];
+  if (!a || !b) return;
+
+  // Actualización optimista en memoria para que se vea al toque.
+  const srcs = (PHOTOS[key] || []).slice();
+  const ids = (PHOTO_IDS[key] || []).slice();
+  [srcs[idx], srcs[j]] = [srcs[j], srcs[idx]];
+  [ids[idx], ids[j]] = [ids[j], ids[idx]];
+  [meta[idx], meta[j]] = [{ id: b.id, orden: a.orden }, { id: a.id, orden: b.orden }];
+  PHOTOS[key] = srcs; PHOTO_IDS[key] = ids; PHOTO_META[key] = meta;
+  renderFotosAdminThumbs();
+  renderCatalog();
+
+  const batch = fbDb.batch();
+  batch.update(fbDb.collection('malsacado_photos_items').doc(a.id), { orden: b.orden });
+  batch.update(fbDb.collection('malsacado_photos_items').doc(b.id), { orden: a.orden });
+  batch.commit().catch(err => showToast('Error al reordenar: ' + err.message));
 }
 
 // ---- Precio: queda pendiente de aprobación en la app madre ----
