@@ -927,11 +927,16 @@ function triggerPhotoUpload() {
 async function handleAdminPhotoUpload(evt) {
   const files = Array.from(evt.target.files || []);
   if (!files.length || !_fotosAdminTarget) return;
+  if (!isAdmin || !firebase.auth().currentUser) {
+    alert('No estás conectada como administradora, así que estas fotos no se van a guardar. Cerrá esta pantalla, iniciá sesión de nuevo y volvé a intentarlo.');
+    evt.target.value = '';
+    return;
+  }
   try {
     const nuevas = await Promise.all(files.map(f => comprimirImagen(f)));
     subirFotosNuevasAdmin(nuevas);
   } catch (e) {
-    showToast('No se pudieron procesar una o más fotos: ' + e.message);
+    alert('No se pudieron procesar una o más fotos: ' + e.message);
   }
   evt.target.value = '';
 }
@@ -944,18 +949,36 @@ function subirFotosNuevasAdmin(srcs) {
   const validas = srcs.filter(s => s && s.length <= 900000);
   const descartadas = srcs.length - validas.length;
   if (!validas.length) {
-    if (descartadas) showToast('Esa foto pesa demasiado incluso comprimida. Probá con otra.');
+    if (descartadas) alert('Esa foto pesa demasiado incluso comprimida. Probá con otra.');
+    return;
+  }
+  if (!fbDb || !firebase.auth().currentUser) {
+    alert('No se pudieron subir las fotos: no estás conectada como administradora. Iniciá sesión de nuevo y volvé a intentarlo.');
     return;
   }
   const batch = fbDb.batch();
   const base = Date.now();
+  const refs = [];
   validas.forEach((src, i) => {
     const ref = fbDb.collection('malsacado_photos_items').doc();
+    refs.push(ref);
     batch.set(ref, { key, src, orden: base + i, creado: new Date().toISOString() });
   });
-  batch.commit().then(() => {
+  batch.commit().then(async () => {
+    // Confirmamos contra el servidor (no solo la caché local) que realmente quedaron guardadas.
+    try {
+      const checks = await Promise.all(refs.map(r => r.get({ source: 'server' })));
+      const faltantes = checks.filter(d => !d.exists).length;
+      if (faltantes > 0) {
+        alert(`${faltantes} de las fotos no quedaron guardadas en el servidor. Revisá tu conexión y volvé a subirlas.`);
+        return;
+      }
+    } catch (verifyErr) {
+      alert('Las fotos se subieron pero no pude confirmar con el servidor que quedaron guardadas (revisá tu conexión y, por las dudas, recargá la página para verificar). Detalle: ' + verifyErr.message);
+      return;
+    }
     showToast(descartadas ? `Fotos subidas (${descartadas} se descartó por pesar demasiado).` : 'Fotos actualizadas.');
-  }).catch(err => showToast('Error al guardar: ' + err.message));
+  }).catch(err => alert('No se pudieron guardar las fotos: ' + err.message));
 }
 
 function eliminarFotoAdmin(idx) {
