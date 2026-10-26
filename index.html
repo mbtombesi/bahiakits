@@ -290,6 +290,25 @@
   body.edit-mode .prod-thumb:active .edit-overlay-card { opacity: 1; display: flex; }
   .edit-overlay-card button { background: var(--surface); border: 1px solid var(--border2); padding: 7px 12px; border-radius: 20px; font-size: 11px; color: var(--text); display:flex; align-items:center; gap:6px; }
 
+  .fotos-admin-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .foto-admin-thumb {
+    width: 76px; height: 76px; border-radius: var(--radius-sm); overflow: hidden;
+    position: relative; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .foto-admin-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .foto-admin-thumb a, .foto-admin-thumb button {
+    position: absolute; top: 2px; width: 20px; height: 20px; border-radius: 4px;
+    background: rgba(0,0,0,0.7); border: none; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; cursor: pointer;
+  }
+  .foto-admin-thumb a { left: 2px; color: var(--text); }
+  .foto-admin-thumb button { right: 2px; color: var(--red); }
+  .foto-admin-thumb.add-more {
+    display: flex; align-items: center; justify-content: center;
+    border: 2px dashed var(--border2); background: var(--surface2); color: var(--text3); font-size: 24px; cursor: pointer;
+  }
+  .foto-admin-thumb.add-more:hover { border-color: var(--accent); color: var(--accent); }
+
   body.edit-mode .prod-price { cursor: pointer; border-bottom: 1px dashed var(--text3); }
   .pending-tag {
     font-size: 9px; color: var(--orange); margin-top: 2px; display: flex; align-items: center; gap: 3px;
@@ -371,7 +390,15 @@
   </div>
 </div>
 
-<input type="file" id="photo-upload-input" accept="image/*" style="display:none;" onchange="handleAdminPhotoUpload(event)">
+<!-- GESTIÓN DE FOTOS (admin) -->
+<div class="overlay" id="modal-fotos">
+  <div class="modal">
+    <div class="modal-title"><span id="fotos-modal-title">Fotos</span> <button class="modal-close" onclick="closeOverlay('modal-fotos')"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:12px; color:var(--text2); margin-bottom:14px;">Se sincronizan directo con la app madre, sin avisos. Podés subir varias, borrarlas o descargarlas.</p>
+    <div class="fotos-admin-grid" id="fotos-admin-grid"></div>
+  </div>
+</div>
+<input type="file" id="photo-upload-input" accept="image/*" multiple style="display:none;" onchange="handleAdminPhotoUpload(event)">
 
 <div class="toast" id="toast"></div>
 
@@ -571,7 +598,7 @@ function renderProductCard(p) {
         ${foto ? `<img src="${foto}" alt="${p.producto}">` : `<i class="ti ti-shirt"></i>`}
         <span class="prod-badge">${p.categoria || ''}</span>
         <div class="edit-overlay-card">
-          <button onclick="triggerPhotoUpload('${encodeURIComponent(p.producto)}', '${sel}')"><i class="ti ti-camera"></i> Cambiar foto (talle ${sel})</button>
+          <button onclick="abrirGestionFotos('${encodeURIComponent(p.producto)}', '${sel}')"><i class="ti ti-camera"></i> Fotos (talle ${sel})</button>
         </div>
       </div>
       <div class="prod-info">
@@ -742,26 +769,66 @@ function loginAdmin() {
 }
 
 // ---- Fotos: se guardan por producto+talle (igual que la app madre), sincronizan directo sin preguntar ----
-let _photoUploadTarget = null;
-function triggerPhotoUpload(encProducto, talle) {
+let _fotosAdminTarget = null; // key producto__talle
+
+function abrirGestionFotos(encProducto, talle) {
   if (!isAdmin) return;
-  _photoUploadTarget = stockKeyOf(decodeURIComponent(encProducto), talle);
+  const producto = decodeURIComponent(encProducto);
+  _fotosAdminTarget = stockKeyOf(producto, talle);
+  document.getElementById('fotos-modal-title').textContent = `Fotos — ${producto} (talle ${talle})`;
+  renderFotosAdminThumbs();
+  document.getElementById('modal-fotos').classList.add('open');
+}
+
+function renderFotosAdminThumbs() {
+  const grid = document.getElementById('fotos-admin-grid');
+  const fotos = PHOTOS[_fotosAdminTarget] || [];
+  grid.innerHTML = fotos.map((src, i) => `
+    <div class="foto-admin-thumb">
+      <img src="${src}" alt="foto ${i+1}">
+      <a href="${src}" download="${(_fotosAdminTarget||'foto').replace(/[^a-zA-Z0-9_-]+/g,'_')}_${i+1}.jpg" title="Descargar"><i class="ti ti-download"></i></a>
+      <button onclick="eliminarFotoAdmin(${i})" title="Eliminar"><i class="ti ti-x"></i></button>
+    </div>`).join('') +
+    `<div class="foto-admin-thumb add-more" onclick="triggerPhotoUpload()" title="Agregar fotos"><i class="ti ti-plus"></i></div>`;
+}
+
+function triggerPhotoUpload() {
+  if (!isAdmin || !_fotosAdminTarget) return;
   document.getElementById('photo-upload-input').click();
 }
+
 function handleAdminPhotoUpload(evt) {
-  const file = evt.target.files[0];
-  if (!file || !_photoUploadTarget) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const base64 = reader.result;
-    fbDb.collection('malsacado_photos').doc(_photoUploadTarget).set({
-      data: [base64],
-      actualizado: new Date().toISOString()
-    }).then(() => showToast('Foto actualizada.'))
-      .catch(err => showToast('Error al subir la foto: ' + err.message));
-  };
-  reader.readAsDataURL(file);
+  const files = Array.from(evt.target.files || []);
+  if (!files.length || !_fotosAdminTarget) return;
+  const existentes = (PHOTOS[_fotosAdminTarget] || []).slice();
+  let cargadas = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      existentes.push(reader.result);
+      cargadas++;
+      if (cargadas === files.length) guardarFotosAdmin(existentes);
+    };
+    reader.readAsDataURL(file);
+  });
   evt.target.value = '';
+}
+
+function eliminarFotoAdmin(idx) {
+  const fotos = (PHOTOS[_fotosAdminTarget] || []).slice();
+  fotos.splice(idx, 1);
+  guardarFotosAdmin(fotos);
+}
+
+function guardarFotosAdmin(arr) {
+  PHOTOS[_fotosAdminTarget] = arr; // optimista, para que se vea al toque
+  renderFotosAdminThumbs();
+  renderCatalog();
+  fbDb.collection('malsacado_photos').doc(_fotosAdminTarget).set({
+    data: arr,
+    actualizado: new Date().toISOString()
+  }).then(() => showToast('Fotos actualizadas.'))
+    .catch(err => showToast('Error al guardar: ' + err.message));
 }
 
 // ---- Precio: queda pendiente de aprobación en la app madre ----
