@@ -474,6 +474,7 @@ let DATA = { compras: [], ventas: [] };
 let STOCK_MAP = {};
 let PRODUCTOS = []; // agrupado por nombre de producto
 let PHOTOS = {}; // key -> [base64,...]
+let PHOTO_IDS = {}; // key -> [idDocFirestore,...] (mismo orden que PHOTOS), para poder borrar una foto puntual
 let fbDb = null;
 let isAdmin = false;
 let currentFilter = 'todos';
@@ -526,14 +527,27 @@ function escucharDatos() {
   });
 }
 
+// Cada foto es su propio documento (colección malsacado_photos_items), en vez de
+// guardar todas las fotos de un talle juntas en un solo documento — así no hay
+// límite de cuántas fotos entran juntas (antes topeaba cerca de las 4-5 por talle).
 function escucharFotos() {
-  fbDb.collection('malsacado_photos').onSnapshot(snap => {
-    snap.docChanges().forEach(change => {
-      const key = change.doc.id;
-      if (change.type === 'removed') { delete PHOTOS[key]; }
-      else { PHOTOS[key] = (change.doc.data() || {}).data || []; }
+  fbDb.collection('malsacado_photos_items').onSnapshot(snap => {
+    const porKey = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (!d || !d.key) return;
+      (porKey[d.key] = porKey[d.key] || []).push({ id: doc.id, src: d.src, orden: d.orden || 0 });
     });
+    const nuevoPhotos = {}, nuevoIds = {};
+    Object.keys(porKey).forEach(key => {
+      const items = porKey[key].sort((a, b) => a.orden - b.orden);
+      nuevoPhotos[key] = items.map(it => it.src);
+      nuevoIds[key] = items.map(it => it.id);
+    });
+    PHOTOS = nuevoPhotos;
+    PHOTO_IDS = nuevoIds;
     renderCatalog();
+    if (_fotosAdminTarget) renderFotosAdminThumbs();
   }, err => console.error(err));
 }
 
@@ -904,36 +918,44 @@ function triggerPhotoUpload() {
 async function handleAdminPhotoUpload(evt) {
   const files = Array.from(evt.target.files || []);
   if (!files.length || !_fotosAdminTarget) return;
-  const existentes = (PHOTOS[_fotosAdminTarget] || []).slice();
   try {
     const nuevas = await Promise.all(files.map(f => comprimirImagen(f)));
-    guardarFotosAdmin(existentes.concat(nuevas));
+    subirFotosNuevasAdmin(nuevas);
   } catch (e) {
     showToast('No se pudieron procesar una o más fotos: ' + e.message);
   }
   evt.target.value = '';
 }
 
-function eliminarFotoAdmin(idx) {
-  const fotos = (PHOTOS[_fotosAdminTarget] || []).slice();
-  fotos.splice(idx, 1);
-  guardarFotosAdmin(fotos);
-}
-
-function guardarFotosAdmin(arr) {
-  PHOTOS[_fotosAdminTarget] = arr; // optimista, para que se vea al toque
-  renderFotosAdminThumbs();
-  renderCatalog();
-  const pesoAprox = arr.reduce((s, f) => s + (f ? f.length : 0), 0);
-  if (pesoAprox > 950000) {
-    showToast('Estas fotos pesan demasiado juntas para guardarse en la nube. Borrá alguna de este talle o subí menos a la vez.');
+// Sube cada foto como un documento propio — podés subir todas las que quieras juntas,
+// no hay límite combinado como antes (cada foto solo tiene que pesar <1MB ella sola,
+// y la compresión ya se encarga de eso).
+function subirFotosNuevasAdmin(srcs) {
+  const key = _fotosAdminTarget;
+  const validas = srcs.filter(s => s && s.length <= 900000);
+  const descartadas = srcs.length - validas.length;
+  if (!validas.length) {
+    if (descartadas) showToast('Esa foto pesa demasiado incluso comprimida. Probá con otra.');
     return;
   }
-  fbDb.collection('malsacado_photos').doc(_fotosAdminTarget).set({
-    data: arr,
-    actualizado: new Date().toISOString()
-  }).then(() => showToast('Fotos actualizadas.'))
-    .catch(err => showToast('Error al guardar: ' + err.message));
+  const batch = fbDb.batch();
+  const base = Date.now();
+  validas.forEach((src, i) => {
+    const ref = fbDb.collection('malsacado_photos_items').doc();
+    batch.set(ref, { key, src, orden: base + i, creado: new Date().toISOString() });
+  });
+  batch.commit().then(() => {
+    showToast(descartadas ? `Fotos subidas (${descartadas} se descartó por pesar demasiado).` : 'Fotos actualizadas.');
+  }).catch(err => showToast('Error al guardar: ' + err.message));
+}
+
+function eliminarFotoAdmin(idx) {
+  const key = _fotosAdminTarget;
+  const id = (PHOTO_IDS[key] || [])[idx];
+  if (!id) return;
+  fbDb.collection('malsacado_photos_items').doc(id).delete()
+    .then(() => showToast('Foto eliminada.'))
+    .catch(err => showToast('Error al eliminar: ' + err.message));
 }
 
 // ---- Precio: queda pendiente de aprobación en la app madre ----
